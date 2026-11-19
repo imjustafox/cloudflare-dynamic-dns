@@ -1,0 +1,12 @@
+apiVersion: v2
+name: cloudflare-dynamic-dns
+description: >-
+  Cloudflare dynamic DNS updater. Polls the public IPv4 every minute and keeps
+  the configured A records pointed at the home connection.
+type: application
+version: 0.1.1
+appVersion: "0.1.1"
+kubeVersion: ">=1.25.0-0"
+home: https://github.com/imjustafox/cloudflare-dynamic-dns
+maintainers:
+  - name: furryfoxcorp

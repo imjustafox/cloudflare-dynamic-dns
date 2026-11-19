@@ -1,0 +1,17 @@
+cloudflare-dynamic-dns is running in namespace {{ .Release.Namespace }}.
+
+Records kept in sync (every {{ .Values.intervalSeconds }}s):
+{{- range .Values.records }}
+  - {{ . }}
+{{- end }}
+
+Credentials come from Secret {{ .Values.credentials.existingSecret }}. If it does
+not exist yet, create it:
+
+  kubectl -n {{ .Release.Namespace }} create secret generic {{ .Values.credentials.existingSecret }} \
+    --from-literal={{ .Values.credentials.emailKey }}=you@example.com \
+    --from-literal={{ .Values.credentials.apiKey }}=<token with Zone:DNS:Edit>
+
+Follow the loop:
+
+  kubectl -n {{ .Release.Namespace }} logs deploy/{{ include "cfddns.fullname" . }} -f

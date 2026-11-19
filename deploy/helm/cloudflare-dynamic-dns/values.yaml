@@ -1,0 +1,57 @@
+# cloudflare-dynamic-dns: keeps Cloudflare A records pointed at the home IP.
+#
+# These defaults ARE the deployment: release `cloudflare-dynamic-dns` in
+# namespace `cloudflare-ddns` on the safewords cluster. Override only if you
+# mean to change the deployment itself.
+
+replicaCount: 1
+
+image:
+  repository: oci-registry.safewords.com/cloudflare-dynamic-dns
+  tag: "0.1.1"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: regcred
+
+# Seconds between checks.
+intervalSeconds: 60
+
+# Goes into the DNS record comment as "from <name>". Cloudflare caps comments
+# at 100 characters.
+ddnsHostname: home-ddns
+
+# Entries for data/dnsrecords.txt, one per line. A bare hostname updates both
+# A and AAAA; append :A or :AAAA to restrict it.
+#
+# This file is public, so real hostnames do not go here. Pass them at install
+# time and keep the defaults as placeholders:
+#
+#   helm upgrade --install cloudflare-dynamic-dns deploy/helm/cloudflare-dynamic-dns \
+#     -n cloudflare-ddns --set 'records[0]=home.example.com:A'
+records:
+  - home.example.com:A
+
+# Cloudflare credentials, created out of band (never in git):
+#
+#   kubectl -n cloudflare-ddns create secret generic cloudflare-dynamic-dns \
+#     --from-literal=CF_API_EMAIL=you@example.com \
+#     --from-literal=CF_API_KEY=<zone-dns-edit token>
+credentials:
+  existingSecret: cloudflare-dynamic-dns
+  emailKey: CF_API_EMAIL
+  apiKey: CF_API_KEY
+
+podAnnotations: {}
+
+# One shell loop around a single python process; idle RSS sits around 5MB.
+resources:
+  requests:
+    cpu: 5m
+    memory: 32Mi
+  limits:
+    memory: 96Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
