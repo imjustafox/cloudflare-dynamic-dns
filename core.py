@@ -240,8 +240,10 @@ def get_hostname() -> str:
 def generate_update_comment() -> str:
     """Generate a standardized comment for DNS record updates."""
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    hostname = get_hostname()
-    return f"auto-updated by cloudflare-dynamic-dns on {timestamp} from {hostname}"
+    hostname = os.getenv("DDNS_HOSTNAME") or get_hostname()
+    comment = f"auto-updated by cloudflare-dynamic-dns on {timestamp} from {hostname}"
+    # Cloudflare rejects comments longer than 100 characters.
+    return comment[:100]
 
 
 class Database:
@@ -456,25 +458,21 @@ def setup_logging(log_file: Optional[str] = None,
         except Exception as e:
             logger.debug(f"Could not setup systemd journal logging: {e}")
 
-    # Try syslog (Unix-like systems)
-    try:
-        syslog_handler = logging.handlers.SysLogHandler(address='/dev/log')
+    # Try syslog (Unix-like systems). SysLogHandler swallows a failed connect and
+    # keeps a dead handler around, which then emits a traceback for every log
+    # record. Probe each socket and only keep a handler that actually connected.
+    syslog_formatter = logging.Formatter('cloudflare-dynamic-dns[%(process)d]: %(message)s')
+    for socket_path in ['/dev/log', '/var/run/syslog', '/var/run/log']:
+        try:
+            syslog_handler = logging.handlers.SysLogHandler(address=socket_path)
+        except Exception:
+            continue
+        if syslog_handler.socket is None or syslog_handler.socket.fileno() < 0:
+            continue
         syslog_handler.setLevel(logging.INFO)
-        syslog_formatter = logging.Formatter('cloudflare-dynamic-dns[%(process)d]: %(message)s')
         syslog_handler.setFormatter(syslog_formatter)
         logger.addHandler(syslog_handler)
-    except Exception:
-        # Try alternative syslog socket locations
-        for socket_path in ['/var/run/syslog', '/var/run/log']:
-            try:
-                syslog_handler = logging.handlers.SysLogHandler(address=socket_path)
-                syslog_handler.setLevel(logging.INFO)
-                syslog_formatter = logging.Formatter('cloudflare-dynamic-dns[%(process)d]: %(message)s')
-                syslog_handler.setFormatter(syslog_formatter)
-                logger.addHandler(syslog_handler)
-                break
-            except Exception:
-                continue
+        break
 
     return logger
 
